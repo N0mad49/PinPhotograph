@@ -5,7 +5,7 @@ PinPhotograph 是一款功能强大的图片拼接编辑网页应用，支持两
   
 ### 访问网址
 
-https://slercy.github.io/PinPhotograph/
+https://n0mad49.github.io/PinPhotograph/
 
   
 
