@@ -1929,22 +1929,27 @@
                     });
                 }
 
-                // Native file picker — 轮询等待 ready
-                function pollNativeFiles(callbackId) {
-                    if (!window.NativeBridge) return;
-                    if (window.NativeBridge.checkFilesReady()) {
-                        try {
-                            const raw = window.NativeBridge.getPendingFilesJson();
-                            if (!raw) { showToast('无文件数据', true); return; }
-                            showToast('收到: ' + raw.length + ' 字符');
-                            processNativeFiles(callbackId, raw);
-                        } catch (e) {
-                            showToast('读取失败: ' + e.message, true);
-                        }
-                    } else {
-                        setTimeout(() => pollNativeFiles(callbackId), 200);
+                // Native file picker — visibility 事件驱动轮询
+                window._pendingPickerId = null;
+
+                function tryGetNativeFiles() {
+                    const cbId = window._pendingPickerId;
+                    if (!cbId || !window.NativeBridge) return;
+                    if (!window.NativeBridge.checkFilesReady()) return;
+                    try {
+                        const raw = window.NativeBridge.getPendingFilesJson();
+                        if (!raw) { showToast('无文件数据', true); return; }
+                        showToast('收到: ' + raw.length + ' 字符');
+                        processNativeFiles(cbId, raw);
+                        window._pendingPickerId = null;
+                    } catch (e) {
+                        showToast('读取失败: ' + e.message, true);
                     }
                 }
+
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') tryGetNativeFiles();
+                });
 
                 function processNativeFiles(callbackId, raw) {
                     try {
@@ -1982,8 +1987,9 @@
                     // 选择图片
                     document.getElementById('btn-select-images').addEventListener('click', () => {
                         if (window.NativeBridge) {
+                            window._pendingPickerId = 'replace';
                             window.NativeBridge.pickImages('replace');
-                            pollNativeFiles('replace');
+                            setTimeout(tryGetNativeFiles, 50);
                         } else if (inputs.file) {
                             inputs.file.click();
                         }
@@ -1992,8 +1998,9 @@
                     // 添加图片
                     inputs.btnAddImages.addEventListener('click', () => {
                         if (window.NativeBridge) {
+                            window._pendingPickerId = 'append';
                             window.NativeBridge.pickImages('append');
-                            pollNativeFiles('append');
+                            setTimeout(tryGetNativeFiles, 50);
                         } else if (inputs.addFile) {
                             inputs.addFile.click();
                         }
@@ -2032,8 +2039,9 @@
                     // 自定义背景
                     document.getElementById('btn-select-custom-bg').addEventListener('click', () => {
                         if (window.NativeBridge) {
+                            window._pendingPickerId = 'custombg';
                             window.NativeBridge.pickImages('custombg');
-                            pollNativeFiles('custombg');
+                            setTimeout(tryGetNativeFiles, 50);
                         } else if (inputs.customBgFile) {
                             inputs.customBgFile.click();
                         }
@@ -2209,8 +2217,9 @@
                     inputs.btnHome.addEventListener('click', (e) => {
                         e.preventDefault();
                         if (window.NativeBridge) {
+                            window._pendingPickerId = 'replace';
                             window.NativeBridge.pickImages('replace');
-                            pollNativeFiles('replace');
+                            setTimeout(tryGetNativeFiles, 50);
                         } else if (inputs.file) {
                             inputs.file.click();
                         }
