@@ -151,7 +151,7 @@
 
         /* Controls dock (mobile portrait) */
         #controls-container.docked {
-            transform: translateY(calc(100% - 32px));
+            transform: translateY(calc(100% - 32px)) !important;
         }
 
         /* Fade In Animation */
@@ -3518,8 +3518,8 @@
                         if (activeImageIndex !== -1 && activeImageIndex < selectedImages.length) {
                             const img = selectedImages[activeImageIndex];
                             const f = img.free;
-                            const handleSize = 160; // 角内触摸区
-                            const touchPad = 80;   // 角外扩展区
+                            const handleSize = 300; // 角内触摸区
+                            const touchPad = 150;  // 角外扩展区
 
                             // TL Resize
                             if (pos.x >= f.x - touchPad && pos.x <= f.x + handleSize && pos.y >= f.y - touchPad && pos.y <= f.y + handleSize) {
@@ -4769,7 +4769,7 @@
                 (function () {
                     if (!window.NativeBridge) return;
 
-                    // 折叠操作栏（仅竖屏时显示按钮）
+                    // 折叠操作栏（竖屏时显示）
                     var isPortrait = function () { return window.innerHeight > window.innerWidth; };
                     var btnDock = document.getElementById('btn-dock-controls');
                     var iconDown = document.getElementById('dock-icon-down');
