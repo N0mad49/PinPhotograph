@@ -4751,46 +4751,31 @@
             <script>
                 (function () {
                     if (!window.Capacitor || !Capacitor.isNative) return;
+
                     var banner = document.createElement('div');
                     banner.id = 'android-bridge-status';
                     banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;padding:6px 12px;font-size:13px;text-align:center;color:#fff;background:#29499d';
-                    banner.textContent = 'Android mode active';
+                    banner.textContent = 'Android: testing file input...';
                     document.body.appendChild(banner);
 
-                    // 嵌入式 file input：用户真实触摸触发系统图库
-                    function embedFileInput(btnId, fileId, replace) {
-                        var btn = document.getElementById(btnId);
-                        if (!btn) return;
-                        btn.style.position = 'relative';
-                        btn.style.overflow = 'hidden';
-                        var inp = document.createElement('input');
-                        inp.type = 'file';
-                        inp.id = fileId + '-native';
-                        inp.multiple = true;
-                        inp.accept = 'image/*';
-                        inp.style.cssText = 'position:absolute;inset:0;opacity:0;cursor:pointer;z-index:100';
-                        inp.onchange = function (e) {
-                            banner.textContent = 'Files selected: ' + (e.target.files ? e.target.files.length : 0);
-                            banner.style.background = '#00f';
-                            // 转发到原 handleFiles
+                    // 创建一个全屏覆盖的 file input
+                    var fi = document.createElement('input');
+                    fi.type = 'file';
+                    fi.multiple = true;
+                    fi.accept = 'image/*';
+                    fi.style.cssText = 'position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;opacity:0.01!important;z-index:99999!important';
+                    fi.onchange = function (e) {
+                        var n = e.target.files ? e.target.files.length : 0;
+                        banner.textContent = 'Files: ' + n;
+                        banner.style.background = '#0a0';
+                        if (n > 0) {
                             var evt = { target: { files: e.target.files } };
-                            handleFiles(evt, replace);
-                            this.value = '';
-                        };
-                        btn.appendChild(inp);
-                    }
-
-                    var iv = setInterval(function () {
-                        if (document.getElementById('btn-select-images')) {
-                            clearInterval(iv);
-                            embedFileInput('btn-select-images', 'file-input', true);
-                            embedFileInput('btn-add-images', 'add-file-input', false);
-                            embedFileInput('btn-back-home', 'back-file-input', true);
-                            var cbg = document.getElementById('btn-select-custom-bg');
-                            if (cbg) embedFileInput('btn-select-custom-bg', 'custom-bg-input', false);
-                            banner.textContent = 'Ready - tap buttons';
+                            handleFiles(evt, true);
                         }
-                    }, 50);
+                        this.value = '';
+                    };
+                    document.body.appendChild(fi);
+                    banner.textContent = 'Android: tap anywhere to pick images';
                 })();
             </script>
 </body>
