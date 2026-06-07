@@ -149,9 +149,22 @@
             transform: scale(0.95);
         }
 
-        /* Controls dock (mobile portrait) */
-        #controls-container.docked {
-            transform: translateY(calc(100% - 32px)) !important;
+        /* Dock button — portrait only */
+        #btn-dock-controls { display: none; }
+        @media (orientation: portrait) {
+            #btn-dock-controls { display: flex; }
+        }
+
+        /* Docked state: preview full height, controls at bottom edge */
+        #editor-screen.docked #preview-container {
+            height: 100% !important;
+        }
+        #editor-screen.docked #controls-container {
+            position: absolute !important;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            transform: translateY(calc(100% - 44px)) !important;
         }
 
         /* Fade In Animation */
@@ -687,7 +700,7 @@
                         <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
                     </svg>
                 </button>
-                <button id="btn-dock-controls" title="折叠操作栏" style="display:none"
+                <button id="btn-dock-controls" title="折叠操作栏"
                     class="bg-[#3a3a45]/80 backdrop-blur-sm border border-[#555] text-white p-2 rounded-lg shadow hover:bg-[#444] transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -3518,8 +3531,8 @@
                         if (activeImageIndex !== -1 && activeImageIndex < selectedImages.length) {
                             const img = selectedImages[activeImageIndex];
                             const f = img.free;
-                            const handleSize = 300; // 角内触摸区
-                            const touchPad = 150;  // 角外扩展区
+                            const handleSize = 100; // Increased touch area for mobile
+                            const touchPad = 50;   // Negative offset for easier grabbing
 
                             // TL Resize
                             if (pos.x >= f.x - touchPad && pos.x <= f.x + handleSize && pos.y >= f.y - touchPad && pos.y <= f.y + handleSize) {
@@ -4767,42 +4780,27 @@
 
                 // ---- Capacitor 专用（仅 app 内生效）----
                 (function () {
-                    if (!window.NativeBridge) return;
-
-                    // 折叠操作栏（竖屏时显示）
-                    var isPortrait = function () { return window.innerHeight > window.innerWidth; };
                     var btnDock = document.getElementById('btn-dock-controls');
                     var iconDown = document.getElementById('dock-icon-down');
                     var iconUp = document.getElementById('dock-icon-up');
                     var docked = false;
 
-                    if (isPortrait()) btnDock.style.display = 'flex';
-
-                    window.addEventListener('resize', function () {
-                        btnDock.style.display = isPortrait() ? 'flex' : 'none';
-                        if (!isPortrait() && docked) {
-                            docked = false;
-                            document.getElementById('controls-container').classList.remove('docked');
-                            iconDown.style.display = 'block';
-                            iconUp.style.display = 'none';
-                        }
-                    });
-
                     btnDock.addEventListener('click', function () {
                         docked = !docked;
-                        var ctrl = document.getElementById('controls-container');
+                        var editor = document.getElementById('editor-screen');
                         if (docked) {
-                            ctrl.classList.add('docked');
+                            editor.classList.add('docked');
                             iconDown.style.display = 'none';
                             iconUp.style.display = 'block';
                         } else {
-                            ctrl.classList.remove('docked');
+                            editor.classList.remove('docked');
                             iconDown.style.display = 'block';
                             iconUp.style.display = 'none';
                         }
                     });
 
                     // 原生文件选择器
+                    if (!window.NativeBridge) return;
 
                     window._nativeCb = null;
 
