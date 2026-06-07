@@ -1929,17 +1929,22 @@
                     });
                 }
 
-                // Native file picker — Java 通知后读取数据
-                window.__nativeFilesReady = function(callbackId) {
-                    try {
-                        const raw = window.NativeBridge ? window.NativeBridge.getPendingFilesJson() : null;
-                        if (!raw) { showToast('无文件数据', true); return; }
-                        showToast('收到: ' + raw.length + ' 字符');
-                        processNativeFiles(callbackId, raw);
-                    } catch (e) {
-                        showToast('读取失败: ' + e.message, true);
+                // Native file picker — 轮询等待 ready
+                function pollNativeFiles(callbackId) {
+                    if (!window.NativeBridge) return;
+                    if (window.NativeBridge.checkFilesReady()) {
+                        try {
+                            const raw = window.NativeBridge.getPendingFilesJson();
+                            if (!raw) { showToast('无文件数据', true); return; }
+                            showToast('收到: ' + raw.length + ' 字符');
+                            processNativeFiles(callbackId, raw);
+                        } catch (e) {
+                            showToast('读取失败: ' + e.message, true);
+                        }
+                    } else {
+                        setTimeout(() => pollNativeFiles(callbackId), 200);
                     }
-                };
+                }
 
                 function processNativeFiles(callbackId, raw) {
                     try {
@@ -1978,6 +1983,7 @@
                     document.getElementById('btn-select-images').addEventListener('click', () => {
                         if (window.NativeBridge) {
                             window.NativeBridge.pickImages('replace');
+                            pollNativeFiles('replace');
                         } else if (inputs.file) {
                             inputs.file.click();
                         }
@@ -1987,6 +1993,7 @@
                     inputs.btnAddImages.addEventListener('click', () => {
                         if (window.NativeBridge) {
                             window.NativeBridge.pickImages('append');
+                            pollNativeFiles('append');
                         } else if (inputs.addFile) {
                             inputs.addFile.click();
                         }
@@ -2026,6 +2033,7 @@
                     document.getElementById('btn-select-custom-bg').addEventListener('click', () => {
                         if (window.NativeBridge) {
                             window.NativeBridge.pickImages('custombg');
+                            pollNativeFiles('custombg');
                         } else if (inputs.customBgFile) {
                             inputs.customBgFile.click();
                         }
@@ -2202,6 +2210,7 @@
                         e.preventDefault();
                         if (window.NativeBridge) {
                             window.NativeBridge.pickImages('replace');
+                            pollNativeFiles('replace');
                         } else if (inputs.file) {
                             inputs.file.click();
                         }

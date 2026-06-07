@@ -29,6 +29,7 @@ public class MainActivity extends BridgeActivity {
     private ActivityResultLauncher<String> filePickerLauncher;
     private String pendingFileCallbackId;
     private volatile String pendingFilesJson = null;
+    private volatile boolean filesReady = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -74,16 +75,8 @@ public class MainActivity extends BridgeActivity {
         }
         json.append("]");
         pendingFilesJson = json.toString();
+        filesReady = true;
         Log.d("PinPic", "Files ready, total JSON length: " + pendingFilesJson.length());
-
-        // Signal JS with a tiny evaluateJavascript call (not the full data)
-        String cbId = pendingFileCallbackId;
-        pendingFileCallbackId = null;
-        WebView wv = getBridge().getWebView();
-        if (wv != null) {
-            String jsCall = "window.__nativeFilesReady('" + escape(cbId) + "')";
-            wv.post(() -> wv.evaluateJavascript(jsCall, null));
-        }
     }
 
     private class NativeSaver {
@@ -140,7 +133,13 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public boolean checkFilesReady() {
+            return filesReady;
+        }
+
+        @JavascriptInterface
         public String getPendingFilesJson() {
+            filesReady = false;
             String r = pendingFilesJson;
             pendingFilesJson = null;
             return r;
