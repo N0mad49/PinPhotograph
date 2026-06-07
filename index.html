@@ -4746,6 +4746,57 @@
                 }
 
                 init();
+
+                // ---- Capacitor 原生文件选择器（仅 app 内生效）----
+                (function () {
+                    if (!window.NativeBridge) return;
+
+                    window._nativeCb = null;
+
+                    window.__nativeReady = function () {
+                        try {
+                            const raw = NativeBridge.getPendingFilesJson();
+                            if (!raw) return;
+                            const fileObjs = JSON.parse(raw);
+                            if (!fileObjs || !fileObjs.length) return;
+                            var dt = new DataTransfer();
+                            fileObjs.forEach(function (f) {
+                                var rawStr = atob(f.data);
+                                var bytes = new Uint8Array(rawStr.length);
+                                for (var j = 0; j < rawStr.length; j++) bytes[j] = rawStr.charCodeAt(j);
+                                var blob = new Blob([bytes], { type: f.type || 'image/jpeg' });
+                                dt.items.add(new File([blob], f.name || 'image.jpg', { type: f.type || 'image/jpeg' }));
+                            });
+                            var cb = window._nativeCb;
+                            window._nativeCb = null;
+                            if (cb === 'custombg') {
+                                handleCustomBgSelection({ target: { files: dt.files } });
+                            } else {
+                                handleFiles({ target: { files: dt.files } }, cb === 'replace');
+                            }
+                        } catch (e) { /* 静默忽略 */ }
+                    };
+
+                    document.getElementById('btn-select-images').addEventListener('click', function () {
+                        window._nativeCb = 'replace';
+                        NativeBridge.pickImages();
+                    }, true);
+
+                    document.getElementById('btn-add-images').addEventListener('click', function () {
+                        window._nativeCb = 'append';
+                        NativeBridge.pickImages();
+                    }, true);
+
+                    document.getElementById('btn-select-custom-bg').addEventListener('click', function () {
+                        window._nativeCb = 'custombg';
+                        NativeBridge.pickImages();
+                    }, true);
+
+                    document.getElementById('btn-back-home').addEventListener('click', function () {
+                        window._nativeCb = 'replace';
+                        NativeBridge.pickImages();
+                    }, true);
+                })();
             </script>
 </body>
 
