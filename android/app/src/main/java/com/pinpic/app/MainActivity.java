@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Base64;
+import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
@@ -27,6 +28,7 @@ public class MainActivity extends BridgeActivity {
 
     private ActivityResultLauncher<String> filePickerLauncher;
     private String pendingFileCallbackId;
+    private volatile String pendingFilesJson = null;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -44,8 +46,6 @@ public class MainActivity extends BridgeActivity {
 
     private void onFilesPicked(List<Uri> uris) {
         if (uris == null || uris.isEmpty() || pendingFileCallbackId == null) return;
-        String callbackId = pendingFileCallbackId;
-        pendingFileCallbackId = null;
 
         StringBuilder json = new StringBuilder("[");
         for (int i = 0; i < uris.size(); i++) {
@@ -60,7 +60,6 @@ public class MainActivity extends BridgeActivity {
                 is.close();
                 String b64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP);
                 String name = "image_" + i + ".jpg";
-                // try to extract filename from URI
                 String dispName = uri.getLastPathSegment();
                 if (dispName != null) name = dispName;
 
@@ -68,17 +67,14 @@ public class MainActivity extends BridgeActivity {
                 json.append("{\"name\":\"").append(escape(name))
                         .append("\",\"type\":\"").append(mime != null ? escape(mime) : "image/jpeg")
                         .append("\",\"data\":\"").append(b64).append("\"}");
+                Log.d("PinPic", "File " + i + ": " + name + " " + (mime != null ? mime : "?") + " " + b64.length() + " chars");
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.e("PinPic", "File " + i + " error", e);
             }
         }
         json.append("]");
-
-        String js = "window.__nativeFilesCallback('" + escape(callbackId) + "'," + json.toString() + ")";
-        WebView wv = getBridge().getWebView();
-        if (wv != null) {
-            wv.post(() -> wv.evaluateJavascript(js, null));
-        }
+        pendingFilesJson = json.toString();
+        Log.d("PinPic", "Files ready, total JSON length: " + pendingFilesJson.length());
     }
 
     private class NativeSaver {
@@ -129,7 +125,16 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void pickImages(String callbackId) {
             pendingFileCallbackId = callbackId;
+            pendingFilesJson = null;
+            Log.d("PinPic", "pickImages called: " + callbackId);
             runOnUiThread(() -> filePickerLauncher.launch("image/*"));
+        }
+
+        @JavascriptInterface
+        public String getPendingFilesJson() {
+            String r = pendingFilesJson;
+            pendingFilesJson = null;
+            return r;
         }
     }
 
