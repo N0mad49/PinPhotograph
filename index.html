@@ -4478,19 +4478,27 @@
                     setTimeout(() => {
                         renderPreview(true);
                         const canvas = inputs.previewCanvas;
-                        const link = document.createElement('a');
+                        const qualityVal = Math.max(0.1, Math.min(1.0, appState.exportQuality / 100));
+                        const dataUrl = canvas.toDataURL('image/jpeg', qualityVal);
                         const now = new Date();
                         const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+                        const fileName = `PinPhotograph-${timestamp}.jpg`;
 
-                        link.download = `PinPhotograph-${timestamp}.jpg`;
-                        const qualityVal = Math.max(0.1, Math.min(1.0, appState.exportQuality / 100));
-                        link.href = canvas.toDataURL('image/jpeg', qualityVal);
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
+                        if (window.NativeBridge) {
+                            const base64 = dataUrl.split(',')[1];
+                            const ok = window.NativeBridge.saveImage(base64, fileName);
+                            showToast(ok ? '已保存到相册' : '保存失败', !ok);
+                        } else {
+                            const link = document.createElement('a');
+                            link.download = fileName;
+                            link.href = dataUrl;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            showToast('输出已完成', false);
+                        }
                         requestRender();
                         toggleLoading(false);
-                        showToast('输出已完成', false);
                     }, 300);
                 }
 
