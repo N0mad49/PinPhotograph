@@ -11,41 +11,77 @@ import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+
 import com.getcapacitor.BridgeActivity;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends BridgeActivity {
 
-    private static final int FILE_PICKER_REQUEST = 9001;
-    private String pendingCallbackId;
+    private ActivityResultLauncher<String> filePickerLauncher;
+    private String pendingFileCallbackId;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        filePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.GetMultipleContents(),
+                this::onFilesPicked);
+
         WebView webView = getBridge().getWebView();
         if (webView != null) {
-            webView.addJavascriptInterface(new NativeBridge(), "NativeBridge");
+            webView.addJavascriptInterface(new NativeSaver(), "NativeBridge");
         }
     }
 
-    private void jsEval(final String js) {
-        runOnUiThread(() -> {
-            WebView wv = getBridge().getWebView();
-            if (wv != null) wv.evaluateJavascript(js, null);
-        });
+    private void onFilesPicked(List<Uri> uris) {
+        if (uris == null || uris.isEmpty() || pendingFileCallbackId == null) return;
+        String callbackId = pendingFileCallbackId;
+        pendingFileCallbackId = null;
+
+        StringBuilder json = new StringBuilder("[");
+        for (int i = 0; i < uris.size(); i++) {
+            try {
+                Uri uri = uris.get(i);
+                String mime = getContentResolver().getType(uri);
+                InputStream is = getContentResolver().openInputStream(uri);
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = is.read(buf)) != -1) baos.write(buf, 0, n);
+                is.close();
+                String b64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP);
+                String name = "image_" + i + ".jpg";
+                // try to extract filename from URI
+                String dispName = uri.getLastPathSegment();
+                if (dispName != null) name = dispName;
+
+                if (i > 0) json.append(",");
+                json.append("{\"name\":\"").append(escape(name))
+                        .append("\",\"type\":\"").append(mime != null ? escape(mime) : "image/jpeg")
+                        .append("\",\"data\":\"").append(b64).append("\"}");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        json.append("]");
+
+        String js = "window.__nativeFilesCallback('" + escape(callbackId) + "'," + json.toString() + ")";
+        WebView wv = getBridge().getWebView();
+        if (wv != null) {
+            wv.post(() -> wv.evaluateJavascript(js, null));
+        }
     }
 
-    private class NativeBridge {
+    private class NativeSaver {
         @JavascriptInterface
         public boolean saveImage(String base64Data, String fileName) {
             try {
@@ -74,12 +110,13 @@ public class MainActivity extends BridgeActivity {
                                     Environment.DIRECTORY_PICTURES),
                             "PinPhotograph");
                     dir.mkdirs();
-                    FileOutputStream fos = new FileOutputStream(new File(dir, fileName));
+                    File file = new File(dir, fileName);
+                    FileOutputStream fos = new FileOutputStream(file);
                     fos.write(imageBytes);
                     fos.close();
 
                     Intent scan = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-                    scan.setData(Uri.fromFile(new File(dir, fileName)));
+                    scan.setData(Uri.fromFile(file));
                     sendBroadcast(scan);
                     return true;
                 }
@@ -90,84 +127,17 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
-        public void pickImages(final String callbackId) {
-            pendingCallbackId = callbackId;
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        WebView wv = getBridge().getWebView();
-                        if (wv != null) {
-                            wv.evaluateJavascript(
-                                "document.getElementById('android-bridge-status').textContent='Java: launching picker...';"
-                                + "document.getElementById('android-bridge-status').style.background='#f0f';", null);
-                        }
-                        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                        intent.setType("image/*");
-                        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-                        startActivityForResult(Intent.createChooser(intent, "选择图片"), FILE_PICKER_REQUEST);
-                    } catch (Exception e) {
-                        final String err = e.getMessage() != null ? e.getMessage().replace("'", "\\'").replace("\"", "\\\"") : "null";
-                        WebView wv = getBridge().getWebView();
-                        if (wv != null) {
-                            wv.evaluateJavascript(
-                                "document.getElementById('android-bridge-status').textContent='Java: " + err + "';"
-                                + "document.getElementById('android-bridge-status').style.background='#c00';", null);
-                        }
-                    }
-                }
-            });
+        public void pickImages(String callbackId) {
+            pendingFileCallbackId = callbackId;
+            filePickerLauncher.launch("image/*");
         }
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == FILE_PICKER_REQUEST && resultCode == RESULT_OK && data != null) {
-            jsEval("document.getElementById('android-bridge-status').textContent='Java: picker returned OK';document.getElementById('android-bridge-status').style.background='#0ff';");
-
-            try {
-                List<Uri> uris = new ArrayList<>();
-                if (data.getClipData() != null) {
-                    for (int i = 0; i < data.getClipData().getItemCount(); i++) {
-                        uris.add(data.getClipData().getItemAt(i).getUri());
-                    }
-                } else if (data.getData() != null) {
-                    uris.add(data.getData());
-                }
-
-                if (uris.isEmpty() || pendingCallbackId == null) return;
-
-                JSONArray files = new JSONArray();
-                for (Uri uri : uris) {
-                    byte[] bytes = readUriBytes(uri);
-                    String b64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
-                    JSONObject obj = new JSONObject();
-                    obj.put("data", "data:image/jpeg;base64," + b64);
-                    obj.put("name", uri.getLastPathSegment());
-                    files.put(obj);
-                }
-
-                final String js = "window.__nativeFileResult('" + pendingCallbackId + "', " + files.toString() + ")";
-                jsEval(js);
-            } catch (Exception e) {
-                e.printStackTrace();
-                jsEval("document.getElementById('android-bridge-status').textContent='Java: error: " + e.getMessage().replace("'", "\\'") + "';document.getElementById('android-bridge-status').style.background='#c00';");
-            }
-            pendingCallbackId = null;
-        } else if (requestCode == FILE_PICKER_REQUEST) {
-            jsEval("document.getElementById('android-bridge-status').textContent='Java: picker cancelled/error, resultCode=" + resultCode + "';document.getElementById('android-bridge-status').style.background='#c00';");
-        }
-    }
-
-    private byte[] readUriBytes(Uri uri) throws Exception {
-        InputStream in = getContentResolver().openInputStream(uri);
-        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-        byte[] buf = new byte[8192];
-        int n;
-        while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-        in.close();
-        return out.toByteArray();
+    private String escape(String s) {
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }
