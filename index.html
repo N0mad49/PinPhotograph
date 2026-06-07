@@ -4472,26 +4472,44 @@
                     ctx.restore();
                 }
 
-                function handleSave() {
+                async function handleSave() {
                     if (!selectedImages.length) return;
                     toggleLoading(true);
-                    setTimeout(() => {
-                        renderPreview(true);
-                        const canvas = inputs.previewCanvas;
-                        const link = document.createElement('a');
-                        const now = new Date();
-                        const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+                    // Yield to let loading animation show
+                    await new Promise(r => setTimeout(r, 50));
 
-                        link.download = `PinPhotograph-${timestamp}.jpg`;
-                        const qualityVal = Math.max(0.1, Math.min(1.0, appState.exportQuality / 100));
-                        link.href = canvas.toDataURL('image/jpeg', qualityVal);
+                    renderPreview(true);
+                    const canvas = inputs.previewCanvas;
+                    const qualityVal = Math.max(0.1, Math.min(1.0, appState.exportQuality / 100));
+                    const dataUrl = canvas.toDataURL('image/jpeg', qualityVal);
+
+                    const now = new Date();
+                    const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+                    const fileName = `PinPhotograph-${timestamp}.jpg`;
+
+                    // Try native save (Capacitor / Android WebView)
+                    if (window.NativeBridge) {
+                        const base64 = dataUrl.split(',')[1];
+                        const ok = window.NativeBridge.saveImage(base64, fileName);
+                        if (ok) {
+                            showToast('已保存到相册');
+                        } else {
+                            showToast('保存失败', true);
+                        }
+                    } else {
+                        // Browser fallback: download link
+                        const link = document.createElement('a');
+                        link.download = fileName;
+                        link.href = dataUrl;
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
-                        requestRender();
-                        toggleLoading(false);
                         showToast('输出已完成', false);
-                    }, 300);
+                    }
+
+                    requestRender();
+                    toggleLoading(false);
+                }
                 }
 
                 function toggleLoading(show, msg) {
