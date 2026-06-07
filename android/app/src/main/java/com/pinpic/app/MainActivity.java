@@ -129,7 +129,7 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void pickImages(String callbackId) {
             pendingFileCallbackId = callbackId;
-            filePickerLauncher.launch("image/*");
+            runOnUiThread(() -> filePickerLauncher.launch("image/*"));
         }
     }
 
