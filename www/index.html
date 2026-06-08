@@ -716,9 +716,13 @@
                         <polyline points="18 15 12 9 6 15"></polyline>
                     </svg>
                 </button>
-                <button id="btn-back-home"
-                    class="bg-[#3a3a45]/90 backdrop-blur-sm border border-[#555] text-white text-xs font-medium py-2 px-3 rounded-lg shadow hover:bg-[#444] transition-colors">
-                    重新选图
+                <button id="btn-back-home" title="重新选图"
+                    class="bg-[#3a3a45]/90 backdrop-blur-sm border border-[#555] text-white p-2 rounded-lg shadow hover:bg-[#444] transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
                 </button>
                 <button id="btn-save" title="导出图片"
                     class="bg-[#29499d] text-white text-xs font-bold py-2 px-3 rounded-lg shadow hover:bg-[#345ac5] transition-colors flex items-center justify-center">
@@ -742,6 +746,7 @@
 
                 <!-- Free Mode Options -->
                 <div id="opt-free-mode" class="hidden animate-fade-in mb-4">
+                    <p class="text-[10px] text-gray-500 mb-2">点击选中图片，拖动任意位置移动，拖动四角缩放。</p>
                     <div class="flex justify-between items-center mb-2">
                         <label class="text-xs font-medium text-gray-400">画布比例</label>
                     </div>
@@ -765,7 +770,6 @@
                         <button id="btn-apply-ratio"
                             class="bg-[#29499d] text-white rounded px-3 py-1 text-xs font-bold">应用</button>
                     </div>
-                    <p class="text-[10px] text-gray-500 mt-2">点击选中图片，拖动任意位置移动，拖动四角缩放。</p>
                 </div>
 
                 <!-- Image Management Section -->
@@ -1531,8 +1535,12 @@
                     inputs.presets = document.querySelectorAll('.color-preset');
                 }
 
+                let _saveTimer = 0;
                 function saveSettings() {
-                    localStorage.setItem('picjoin_settings', JSON.stringify(appState));
+                    clearTimeout(_saveTimer);
+                    _saveTimer = setTimeout(() => {
+                        localStorage.setItem('picjoin_settings', JSON.stringify(appState));
+                    }, 300);
                 }
 
                 function requestRender() {
@@ -4856,7 +4864,7 @@
                             } else {
                                 handleFiles({ target: { files: dt.files } }, cb === 'replace');
                             }
-                        } catch (e) { /* 静默忽略 */ }
+                        } catch (e) { console.error('[PicJoin] nativeReady error:', e); }
                     };
 
                     document.getElementById('btn-select-images').addEventListener('click', function () {

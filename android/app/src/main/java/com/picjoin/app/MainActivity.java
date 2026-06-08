@@ -91,7 +91,7 @@ public class MainActivity extends BridgeActivity {
             mainHandler.post(() -> {
                 WebView wv = getBridge().getWebView();
                 if (wv != null) {
-                    wv.loadUrl("javascript:if(window.__nativeReady)window.__nativeReady()");
+                    wv.evaluateJavascript("if(window.__nativeReady)window.__nativeReady()", null);
                 }
             });
         });
