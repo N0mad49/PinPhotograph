@@ -4,12 +4,14 @@ import android.content.ContentValues;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.ImageDecoder;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import android.util.Base64;
 import android.util.Log;
@@ -102,25 +104,48 @@ public class MainActivity extends BridgeActivity {
     private String readFileAsJson(Uri uri, int index) {
         try {
             String mime = getContentResolver().getType(uri);
-            boolean isHeic = mime != null && (mime.contains("heic") || mime.contains("heif"));
-            String name = "image_" + index + (isHeic ? ".jpg" : "");
-            String dispName = uri.getLastPathSegment();
-            if (dispName != null) name = dispName;
+            String name = uri.getLastPathSegment();
+            if (name == null) name = "image_" + index;
+            boolean isHeic = (mime != null && (mime.contains("heic") || mime.contains("heif")))
+                    || name.toLowerCase().endsWith(".heic")
+                    || name.toLowerCase().endsWith(".heif");
 
             String b64;
-            String outMime = mime != null ? mime : "image/jpeg";
+            String outMime = (mime != null && !mime.isEmpty()) ? mime : "image/jpeg";
 
             if (isHeic) {
-                // Convert HEIC to JPEG via Bitmap
-                InputStream is = getContentResolver().openInputStream(uri);
-                Bitmap bitmap = BitmapFactory.decodeStream(is);
-                is.close();
-                if (bitmap == null) return null;
+                Bitmap bitmap = null;
+                // Try ImageDecoder first (API 28+), fallback to BitmapFactory
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    try {
+                        bitmap = ImageDecoder.decodeBitmap(
+                                ImageDecoder.createSource(getContentResolver(), uri));
+                    } catch (Exception e) {
+                        Log.w("PicJoin", "ImageDecoder failed, trying BitmapFactory", e);
+                    }
+                }
+                if (bitmap == null) {
+                    ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, "r");
+                    if (pfd != null) {
+                        bitmap = BitmapFactory.decodeFileDescriptor(pfd.getFileDescriptor());
+                        pfd.close();
+                    }
+                }
+                if (bitmap == null) {
+                    InputStream is = getContentResolver().openInputStream(uri);
+                    bitmap = BitmapFactory.decodeStream(is);
+                    is.close();
+                }
+                if (bitmap == null) {
+                    Log.e("PicJoin", "Failed to decode HEIC: " + name);
+                    return null;
+                }
                 ByteArrayOutputStream jpegStream = new ByteArrayOutputStream();
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 92, jpegStream);
                 bitmap.recycle();
                 b64 = Base64.encodeToString(jpegStream.toByteArray(), Base64.NO_WRAP);
                 outMime = "image/jpeg";
+                name = name.replaceFirst("\\.[^.]+$", "") + ".jpg";
                 Log.d("PicJoin", "HEIC→JPEG: " + name + " base64=" + b64.length());
             } else {
                 InputStream is = getContentResolver().openInputStream(uri);
@@ -136,7 +161,7 @@ public class MainActivity extends BridgeActivity {
             return "{\"name\":\"" + escape(name) + "\",\"type\":\""
                     + escape(outMime) + "\",\"data\":\"" + b64 + "\"}";
         } catch (Exception e) {
-            Log.e("PinPic", "File " + index + " read error", e);
+            Log.e("PicJoin", "File " + index + " read error", e);
             return null;
         }
     }
