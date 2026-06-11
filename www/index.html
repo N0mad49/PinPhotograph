@@ -271,19 +271,14 @@
 
         .controls-scroll::-webkit-scrollbar {
             width: 6px;
-            height: 0px;
         }
-
         .controls-scroll::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.12);
+            background: transparent;
             border-radius: 4px;
         }
-
         .controls-scroll::-webkit-scrollbar-thumb {
             background: #555;
             border-radius: 4px;
-            border: 1px solid rgba(0, 0, 0, 0);
-            background-clip: padding-box;
         }
 
         /* Consistent scrollbar for image list — same style as controls-scroll */
@@ -296,26 +291,19 @@
 
         #image-list-container::-webkit-scrollbar {
             width: 6px;
-            height: 0px;
         }
-
         #image-list-container::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.12);
+            background: transparent;
             border-radius: 4px;
         }
-
         #image-list-container::-webkit-scrollbar-thumb {
             background: #555;
             border-radius: 4px;
-            border: 1px solid rgba(0, 0, 0, 0);
-            background-clip: padding-box;
         }
 
         /* Firefox — unified */
         .controls-scroll,
         #image-list-container {
-            scrollbar-width: thin;
-            scrollbar-color: #555 rgba(0, 0, 0, 0.12);
         }
 
         .btn-ripple {
@@ -532,23 +520,23 @@
             transform: translateY(0);
         }
 
-        /* Drawer dark scrollbar */
-        #image-edit-drawer .space-y-6::-webkit-scrollbar,
-        #image-shadow-drawer .space-y-6::-webkit-scrollbar {
-            width: 6px;
-            height: 0px;
+        /* Drawer dark scrollbar — match .controls-scroll style */
+        #image-edit-drawer [class*="overflow-y-auto"],
+        #image-shadow-drawer [class*="overflow-y-auto"] {
         }
-        #image-edit-drawer .space-y-6::-webkit-scrollbar-track,
-        #image-shadow-drawer .space-y-6::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.12);
+        #image-edit-drawer [class*="overflow-y-auto"]::-webkit-scrollbar,
+        #image-shadow-drawer [class*="overflow-y-auto"]::-webkit-scrollbar {
+            width: 6px;
+        }
+        #image-edit-drawer [class*="overflow-y-auto"]::-webkit-scrollbar-track,
+        #image-shadow-drawer [class*="overflow-y-auto"]::-webkit-scrollbar-track {
+            background: transparent;
             border-radius: 4px;
         }
-        #image-edit-drawer .space-y-6::-webkit-scrollbar-thumb,
-        #image-shadow-drawer .space-y-6::-webkit-scrollbar-thumb {
+        #image-edit-drawer [class*="overflow-y-auto"]::-webkit-scrollbar-thumb,
+        #image-shadow-drawer [class*="overflow-y-auto"]::-webkit-scrollbar-thumb {
             background: #555;
             border-radius: 4px;
-            border: 1px solid rgba(0,0,0,0);
-            background-clip: padding-box;
         }
 
         /* Free Mode Handles */
@@ -701,18 +689,14 @@
             width: 6px;
         }
         #crop-modal::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.15);
-            border-radius: 3px;
+            background: transparent;
+            border-radius: 4px;
         }
         #crop-modal::-webkit-scrollbar-thumb {
             background: #555;
-            border-radius: 3px;
-            border: 1px solid rgba(0,0,0,0);
-            background-clip: padding-box;
+            border-radius: 4px;
         }
         #crop-modal {
-            scrollbar-width: thin;
-            scrollbar-color: #555 rgba(0,0,0,0.15);
         }
         #crop-box {
             position: absolute;
@@ -776,6 +760,17 @@
         #crop-preview-overlay {
             background: #202025;
             touch-action: none;
+        }
+        #crop-preview-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transition: width 0.25s cubic-bezier(0.4,0,0.2,1), height 0.25s cubic-bezier(0.4,0,0.2,1);
+        }
+        #crop-preview-box {
+            transition: left 0.25s cubic-bezier(0.4,0,0.2,1), top 0.25s cubic-bezier(0.4,0,0.2,1), width 0.25s cubic-bezier(0.4,0,0.2,1), height 0.25s cubic-bezier(0.4,0,0.2,1);
         }
         #crop-preview-wrapper {
             max-width: 100%;
@@ -1337,7 +1332,7 @@
                     </button>
                 </div>
 
-                <div class="space-y-6 overflow-y-auto pb-4">
+                <div class="space-y-6 overflow-y-auto pb-4 controls-scroll">
                     <!-- Saturation -->
                     <div>
                         <div class="flex justify-between items-center mb-1">
@@ -1390,7 +1385,7 @@
                     </button>
                 </div>
 
-                <div class="space-y-6 overflow-y-auto pb-4">
+                <div class="space-y-6 overflow-y-auto pb-4 controls-scroll">
                     <!-- Opacity -->
                     <div>
                         <div class="flex justify-between items-center mb-1">
@@ -2834,6 +2829,7 @@
                         _savedPreviewWidth = previewContainer.style.width || '';
                     }
                     // Show panel first, scroll to top, then measure and set preview height
+                    inputs.previewCanvas.style.visibility = 'hidden'; // hide shadow glow beneath overlay
                     cropControlsPanel.classList.remove('hidden');
                     cropPreviewOverlay.classList.remove('hidden');
                     if (scrollEl) scrollEl.scrollTop = 0;
@@ -2851,14 +2847,13 @@
                         var idealPreviewH = window.innerHeight - controlsTotal;
                         if (scrollPad === 0) idealPreviewH -= 140; // fallback estimate
                         previewContainer.style.height = Math.max(220, Math.round(idealPreviewH)) + 'px';
-                        layoutCropBox();
+                        // Wait one more frame so browser has reflowed the new height
+                        requestAnimationFrame(layoutCropBox);
                     });
-
-
-                    requestAnimationFrame(layoutCropBox);
                 }
 
                 function closeCropModal() {
+                    inputs.previewCanvas.style.visibility = ''; // restore normal canvas
                     // Hide overlay
                     cropPreviewOverlay.classList.add('hidden');
                     // Hide crop controls panel
@@ -2946,16 +2941,32 @@
                 }
 
                 function layoutCropBox() {
-                    const previewRect = previewContainer.getBoundingClientRect();
-                    var cw = previewRect.width - 32;
-                    var ch = previewRect.height - 32;
+                    // Delay to ensure browser has finished laying out after any size change
+                    var delayCalls = arguments.length > 0 ? (arguments[0] || 0) : 0;
+                    if (delayCalls < 3) {
+                        var overlayRect = cropPreviewOverlay.getBoundingClientRect();
+                        if (overlayRect.width <= 0 || overlayRect.height <= 0) {
+                            requestAnimationFrame(function() { layoutCropBox(delayCalls + 1); });
+                            return;
+                        }
+                    }
+                    var overlayRect = cropPreviewOverlay.getBoundingClientRect();
+                    var cw = overlayRect.width - 16;
+                    var ch = overlayRect.height - 16;
+                    var editorEl = document.getElementById('editor-screen');
+                    if (editorEl && editorEl.classList.contains('docked')) {
+                        var ctrlRect = controlsContainer.getBoundingClientRect();
+                        var dockH = window.innerHeight - ctrlRect.top;
+                        if (dockH > 0) ch -= Math.round(dockH * 1.3);
+                    }
                     if (cw <= 0 || ch <= 0) { requestAnimationFrame(layoutCropBox); return; }
                     const img = cropState.sourceImg;
                     if (!img) return;
                     const imgW = img.naturalWidth || img.width;
                     const imgH = img.naturalHeight || img.height;
                     if (imgW <= 0 || imgH <= 0) return;
-                    // Explicit JS sizing: scale down to fit preview, always show full image
+                    // Scale to fit available space, use devicePixelRatio for sharp rendering
+                    var dpr = window.devicePixelRatio || 1;
                     var scale = Math.min(cw / imgW, ch / imgH);
                     if (scale > 1) scale = 1;
                     var dispW = Math.floor(imgW * scale);
@@ -2963,12 +2974,14 @@
                     cropState.displayScale = scale;
                     cropState.displayOffset = { x: 0, y: 0 };
                     var canvas = cropPreviewCanvas;
-                    canvas.width = dispW;
-                    canvas.height = dispH;
+                    canvas.width = Math.floor(dispW * dpr);
+                    canvas.height = Math.floor(dispH * dpr);
                     canvas.style.width = dispW + 'px';
                     canvas.style.height = dispH + 'px';
                     var ctx = canvas.getContext('2d');
+                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                     ctx.drawImage(img, 0, 0, imgW, imgH, 0, 0, dispW, dispH);
+                    ctx.setTransform(1, 0, 0, 1, 0, 0);
                     cropPreviewBox.style.display = 'block';
                     renderCropBox();
                 }
@@ -5608,14 +5621,33 @@
                     btnDock.addEventListener('click', function () {
                         docked = !docked;
                         var editor = document.getElementById('editor-screen');
+                        var preview = document.getElementById('preview-container');
                         if (docked) {
                             editor.classList.add('docked');
                             iconDown.style.display = 'none';
                             iconUp.style.display = 'block';
+                            // Reserve space at bottom for docked controls strip (1.3x for rounded corners/shadow)
+                            var ctrlRect = document.getElementById('controls-container').getBoundingClientRect();
+                            var dockH = window.innerHeight - ctrlRect.top;
+                            var pad = dockH > 0 ? Math.round(dockH * 1.3) : 0;
+                            preview.style.paddingBottom = pad + 'px';
+                            cropPreviewOverlay.style.bottom = pad + 'px';
                         } else {
                             editor.classList.remove('docked');
                             iconDown.style.display = 'block';
                             iconUp.style.display = 'none';
+                            preview.style.paddingBottom = '';
+                            cropPreviewOverlay.style.bottom = '';
+                        }
+                        // Normal render adapts instantly via padding + object-fit
+                        requestRender();
+                        // Crop mode: wait for CSS transition to finish, then measure & relayout
+                        if (cropState.imgIndex >= 0 && !cropPreviewOverlay.classList.contains('hidden')) {
+                            var onEnd = function() {
+                                preview.removeEventListener('transitionend', onEnd);
+                                layoutCropBox();
+                            };
+                            preview.addEventListener('transitionend', onEnd);
                         }
                     });
 
