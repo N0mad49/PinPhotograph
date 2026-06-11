@@ -2510,6 +2510,7 @@
                             showToast('至少需要保留 1 张图片', true);
                             return;
                         }
+                        if (!confirm(`确定删除选中的 ${selectionSet.size} 张图片？`)) return;
                         pushUndo();
                         const toDelete = Array.from(selectionSet).sort((a, b) => b - a);
                         toDelete.forEach(idx => originalImageObjects.splice(idx, 1));
@@ -3818,6 +3819,7 @@
                         showToast("至少需要保留 1 张图片", true);
                         return;
                     }
+                    if (!confirm("确定删除这张图片？")) return;
                     pushUndo();
                     originalImageObjects.splice(index, 1);
                     refreshAfterImageUpdate();
