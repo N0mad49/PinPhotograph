@@ -3092,10 +3092,36 @@
                             break;
                     }
                     if (handle !== 'move') {
-                        r.x = Math.max(0, Math.min(r.x, iw - 10));
-                        r.y = Math.max(0, Math.min(r.y, ih - 10));
-                        r.w = Math.max(10, Math.min(r.w, iw - r.x));
-                        r.h = Math.max(10, Math.min(r.h, ih - r.y));
+                        // Clamp position, then re-apply ratio to avoid breaking aspect lock
+                        if (lock > 0) {
+                            // For edge handles, clamp the primary dimension and derive the other
+                            if (handle === 'e' || handle === 'w') {
+                                r.x = Math.max(0, Math.min(r.x, iw - 10));
+                                r.w = Math.max(10, Math.min(r.w, iw - r.x));
+                                r.h = r.w / lock;
+                            } else if (handle === 'n' || handle === 's') {
+                                r.y = Math.max(0, Math.min(r.y, ih - 10));
+                                r.h = Math.max(10, Math.min(r.h, ih - r.y));
+                                r.w = r.h * lock;
+                            } else {
+                                // Corner: clamp to image bounds, maintain ratio from the larger delta
+                                r.x = Math.max(0, r.x); r.y = Math.max(0, r.y);
+                                if (r.x + r.w > iw) r.w = iw - r.x;
+                                if (r.y + r.h > ih) r.h = ih - r.y;
+                                r.w = Math.max(10, r.w); r.h = Math.max(10, r.h);
+                                var ar = applyAspectRatio(r.w, r.h, handle);
+                                r.w = Math.max(10, Math.min(ar.w, iw - r.x));
+                                r.h = Math.max(10, Math.min(ar.h, ih - r.y));
+                                // Second pass: if still doesn't fit, favor the locked dimension
+                                if (r.y + r.h > ih) { r.h = Math.max(10, ih - r.y); r.w = r.h * lock; }
+                                if (r.x + r.w > iw) { r.w = Math.max(10, iw - r.x); r.h = r.w / lock; }
+                            }
+                        } else {
+                            r.x = Math.max(0, Math.min(r.x, iw - 10));
+                            r.y = Math.max(0, Math.min(r.y, ih - 10));
+                            r.w = Math.max(10, Math.min(r.w, iw - r.x));
+                            r.h = Math.max(10, Math.min(r.h, ih - r.y));
+                        }
                     } else {
                         r.x = Math.max(0, Math.min(r.x, iw - r.w));
                         r.y = Math.max(0, Math.min(r.y, ih - r.h));
@@ -3172,6 +3198,7 @@
                 }
 
                 function startCropInteraction(type, handle, clientX, clientY) {
+                    cropPreviewBox.style.transition = 'none';
                     var origin = getCropOrigin();
                     cropState.interacting = true;
                     cropState.interactionType = type;
@@ -3193,6 +3220,7 @@
                 function handleCropEnd(e) {
                     if (!cropState.interacting) return;
                     cropState.interacting = false;
+                    cropPreviewBox.style.transition = '';
                     cropState.interactionType = null;
                     cropState.handle = null;
                 }
