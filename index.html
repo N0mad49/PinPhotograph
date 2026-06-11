@@ -1525,6 +1525,18 @@
                 <span style="font-size: 16px; letter-spacing: 2px; opacity: 0.9;">正在处理...</span>
             </div>
 
+            <!-- Confirm Dialog -->
+            <div id="confirm-dialog" class="fixed inset-0 z-[10000] flex items-center justify-center" style="display:none;">
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="confirm-bg"></div>
+                <div class="relative bg-[#292932] rounded-2xl shadow-2xl border border-[#444] p-6 max-w-xs w-11/12 text-center">
+                    <p id="confirm-msg" class="text-white text-base mb-6"></p>
+                    <div class="flex justify-center gap-4">
+                        <button id="confirm-cancel" class="px-6 py-2 rounded-lg text-sm font-medium border border-[#555] text-gray-300 hover:bg-[#3a3a45] transition-colors">取消</button>
+                        <button id="confirm-ok" class="px-6 py-2 rounded-lg text-sm font-bold bg-[#29499d] text-white hover:bg-[#345ac5] transition-colors">确定</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Global Drag and Drop Overlay -->
             <div id="drag-drop-overlay"
                 style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 99999; background-color: rgba(0, 0, 0, 0.8); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); opacity: 0; flex-direction: column; transition: opacity 0.3s ease; pointer-events: none; align-items: center; justify-content: center;">
@@ -2504,13 +2516,13 @@
                     document.getElementById('btn-undo').addEventListener('click', undo);
 
                     // Batch delete button
-                    document.getElementById('btn-batch-delete').addEventListener('click', () => {
+                    document.getElementById('btn-batch-delete').addEventListener('click', async () => {
                         if (selectionSet.size === 0) return;
                         if (originalImageObjects.length - selectionSet.size < 1) {
                             showToast('至少需要保留 1 张图片', true);
                             return;
                         }
-                        if (!confirm(`确定删除选中的 ${selectionSet.size} 张图片？`)) return;
+                        if (!(await showConfirm(`确定删除选中的 ${selectionSet.size} 张图片？`))) return;
                         pushUndo();
                         const toDelete = Array.from(selectionSet).sort((a, b) => b - a);
                         toDelete.forEach(idx => originalImageObjects.splice(idx, 1));
@@ -3814,12 +3826,12 @@
                     refreshAfterImageUpdate();
                 }
 
-                function removeImage(index) {
+                async function removeImage(index) {
                     if (originalImageObjects.length <= 1) {
                         showToast("至少需要保留 1 张图片", true);
                         return;
                     }
-                    if (!confirm("确定删除这张图片？")) return;
+                    if (!(await showConfirm("确定删除这张图片？"))) return;
                     pushUndo();
                     originalImageObjects.splice(index, 1);
                     refreshAfterImageUpdate();
@@ -5457,6 +5469,26 @@
                         toast.style.opacity = '0';
                         toast.style.transform = 'translate(-50%, 0)';
                     }, 3000);
+                }
+
+                function showConfirm(msg) {
+                    return new Promise(function(resolve) {
+                        var dlg = document.getElementById('confirm-dialog');
+                        document.getElementById('confirm-msg').innerText = msg;
+                        dlg.style.display = 'flex';
+                        function cleanup(ok) {
+                            dlg.style.display = 'none';
+                            document.getElementById('confirm-ok').removeEventListener('click', onOk);
+                            document.getElementById('confirm-cancel').removeEventListener('click', onCancel);
+                            document.getElementById('confirm-bg').removeEventListener('click', onCancel);
+                            resolve(ok);
+                        }
+                        function onOk() { cleanup(true); }
+                        function onCancel() { cleanup(false); }
+                        document.getElementById('confirm-ok').addEventListener('click', onOk);
+                        document.getElementById('confirm-cancel').addEventListener('click', onCancel);
+                        document.getElementById('confirm-bg').addEventListener('click', onCancel);
+                    });
                 }
 
                 function setupDragDrop() {
